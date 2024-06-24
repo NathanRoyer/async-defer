@@ -1,6 +1,6 @@
 [package]
 name = "async-defer"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 authors = [ "Nathan ROYER <nathan.royer.pro@gmail.com>" ]
 description = "Asynchronous Deferred Calls"
@@ -10,7 +10,7 @@ keywords = [ "defer", "deferred", "call", "active", "object" ]
 repository = "https://github.com/NathanRoyer/async-defer"
 
 [dependencies]
-futures-lite = "2.3"
+futures-lite = { version = "2.3", default-features = false }
 async-channel = "2.3"
 async-lock = "3.4"
 async-io = "2.3"
