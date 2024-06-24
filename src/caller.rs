@@ -1,7 +1,27 @@
 use async_channel::{Send, Sender};
 use std::time::Instant;
 
+#[cfg(doc)]
+use super::Dispatcher;
+
 /// Deferred Caller
+///
+/// When you create a [`Caller`] for a method of `T` using [`Dispatcher`], a background
+/// task is created, waiting for you to schedule deferred calls via the [`Caller`]. When
+/// a call is scheduled, the background task will lock the `RwLock` or `Mutex` and call
+/// the method on the locked `T` instance.
+///
+/// ### Compatible `T` methods
+///
+/// The methods must:
+/// - be asynchronous
+/// - return `Result<(), String>`
+///
+/// They can take `self` mutably or immutably.
+///
+/// *Note: you can use a freestanding function instead of a method if the first parameter
+/// of that function is `&T` or `&mut T`.*
+///
 #[derive(Clone, Default, Debug)]
 pub struct Caller<T> {
     pub(crate) inner: Option<Sender<T>>,
@@ -31,3 +51,6 @@ caller_impl! {a: P1}
 caller_impl! {a: P1, b: P2}
 caller_impl! {a: P1, b: P2, c: P3}
 caller_impl! {a: P1, b: P2, c: P3, d: P4}
+caller_impl! {a: P1, b: P2, c: P3, d: P4, e: P5}
+caller_impl! {a: P1, b: P2, c: P3, d: P4, e: P5, f: P6}
+caller_impl! {a: P1, b: P2, c: P3, d: P4, e: P5, f: P6, g: P7}

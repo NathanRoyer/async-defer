@@ -2,108 +2,54 @@ use async_lock::{Mutex, RwLock};
 use std::{
     future::Future,
     ops::{Deref, DerefMut},
-    sync::Arc,
 };
 
 // --- MUT ---
 
 /// Locking primitives, Mutable Access
-pub trait LockMut {
+pub trait LockMut: Send + Sync + 'static {
     type Inner;
-    type Output<'a>: DerefMut<Target = Self::Inner>
-    where
-        Self: 'a;
-    fn lock_mut<'a>(&'a self) -> impl Future<Output = Self::Output<'a>>
-    where
-        Self: 'a;
+    type Output<'a>: DerefMut<Target = Self::Inner> + Send;
+    fn lock_mut<'a>(&'a self) -> impl Future<Output = Self::Output<'a>> + Send;
 }
 
-impl<T> LockMut for RwLock<T> {
+impl<T: Send + Sync + 'static> LockMut for RwLock<T> {
     type Inner = T;
-    type Output<'a> = async_lock::RwLockWriteGuard<'a, T> where T: 'a;
-    fn lock_mut<'a>(&'a self) -> impl Future<Output = Self::Output<'a>>
-    where
-        T: 'a,
-    {
+    type Output<'a> = async_lock::RwLockWriteGuard<'a, T>;
+    fn lock_mut<'a>(&'a self) -> impl Future<Output = Self::Output<'a>> + Send {
         async { self.write().await }
     }
 }
 
-impl<T> LockMut for Mutex<T> {
+impl<T: Send + Sync + 'static> LockMut for Mutex<T> {
     type Inner = T;
-    type Output<'a> = async_lock::MutexGuard<'a, T> where T: 'a;
-    fn lock_mut<'a>(&'a self) -> impl Future<Output = Self::Output<'a>>
-    where
-        T: 'a,
-    {
+    type Output<'a> = async_lock::MutexGuard<'a, T>;
+    fn lock_mut<'a>(&'a self) -> impl Future<Output = Self::Output<'a>> + Send {
         async { self.lock().await }
-    }
-}
-
-impl<T, I: LockMut<Inner = T>> LockMut for Arc<I> {
-    type Inner = T;
-    type Output<'a> = I::Output<'a> where I: 'a;
-    fn lock_mut<'a>(&'a self) -> impl Future<Output = Self::Output<'a>>
-    where
-        I: 'a,
-    {
-        async { self.deref().lock_mut().await }
     }
 }
 
 // --- REF ---
 
 /// Locking primitives, Immutable Access
-pub trait LockRef {
+pub trait LockRef: Send + Sync + 'static {
     type Inner;
-    type Output<'a>: Deref<Target = Self::Inner>
-    where
-        Self: 'a;
-    fn lock_ref<'a>(&'a self) -> impl Future<Output = Self::Output<'a>>
-    where
-        Self: 'a;
+    type Output<'a>: Deref<Target = Self::Inner> + Send;
+    fn lock_ref<'a>(&'a self) -> impl Future<Output = Self::Output<'a>> + Send;
 }
 
-impl<T> LockRef for RwLock<T> {
+impl<T: Send + Sync + 'static> LockRef for RwLock<T> {
     type Inner = T;
-    type Output<'a> = async_lock::RwLockReadGuard<'a, T> where T: 'a;
-    fn lock_ref<'a>(&'a self) -> impl Future<Output = Self::Output<'a>>
-    where
-        T: 'a,
-    {
+    type Output<'a> = async_lock::RwLockReadGuard<'a, T>;
+    fn lock_ref<'a>(&'a self) -> impl Future<Output = Self::Output<'a>> + Send {
         async { self.read().await }
     }
 }
 
-impl<T> LockRef for Mutex<T> {
+impl<T: Send + Sync + 'static> LockRef for Mutex<T> {
     type Inner = T;
-    type Output<'a> = async_lock::MutexGuard<'a, T> where T: 'a;
-    fn lock_ref<'a>(&'a self) -> impl Future<Output = Self::Output<'a>>
-    where
-        T: 'a,
-    {
+    type Output<'a> = async_lock::MutexGuard<'a, T>;
+    fn lock_ref<'a>(&'a self) -> impl Future<Output = Self::Output<'a>> + Send {
         async { self.lock().await }
-    }
-}
-
-impl<T, I: LockRef<Inner = T>> LockRef for Arc<I> {
-    type Inner = T;
-    type Output<'a> = I::Output<'a> where I: 'a;
-    fn lock_ref<'a>(&'a self) -> impl Future<Output = Self::Output<'a>>
-    where
-        I: 'a,
-    {
-        async { self.deref().lock_ref().await }
-    }
-}
-
-impl<T> LockRef for &T {
-    type Inner = T;
-    type Output<'a> = &'a T where T: 'a, Self: 'a;
-    fn lock_ref<'a>(&'a self) -> impl Future<Output = Self::Output<'a>>
-    where
-        T: 'a,
-    {
-        async { *self }
     }
 }

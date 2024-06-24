@@ -1,20 +1,42 @@
 # Asynchronous Deferred Calls
 
-This crate adds a `listen` method to `Arc<RwLock<T>>` and other locking primitives.
+This crate implements the [Active Object](https://en.wikipedia.org/wiki/Active_object) design pattern.
 
-The method takes a callback parameter and returns a [`Caller`].
+The entry point of this crate is [`Dispatcher`], which wraps an `Arc<Lock<T>>`.
 
-The `listen` method creates a background task waiting for you to use the [`Caller`].
-Whenever a call is dispatched, the locking primitive gets locked and the callback
-gets called with the lock's content as well as what you sent.
+*Note: Lock can be `RwLock` or `Mutex` from the `async-lock` crate.*
 
-The callback must:
+### [`Dispatcher`]
+
+The [`Dispatcher`] allows you to create [`Caller`]s for some methods on `T`.
+
+You can then schedule deferred calls to these methods via these [`Caller`]s.
+
+[`Dispatcher`] implements `Future`; You must await this future for calls to
+actually be dispatched.
+
+### [`Caller`]
+
+When you create a [`Caller`] for a method of `T` using [`Dispatcher`], a background
+task is created, waiting for you to schedule deferred calls via the [`Caller`]. When
+a call is scheduled, the background task will lock the `RwLock` or `Mutex` and call
+the method on the locked `T` instance.
+
+### Compatible `T` methods
+
+The methods must:
 - be asynchronous
-- return `Result<(), String>`
-- take either `&T` or `&mut T` as first parameter
+- return an implementer of [`ReturnType`]
 
-if the callback's last parameter is an [`async_channel::Sender`], you can turn your [`Caller`] into
-a [`Summoner`], which makes it easy to wait for a reply when you dispatch a call.
+They can take `self` mutably or immutably.
+
+*Note: you can use a freestanding function instead of a method if the first parameter
+of that function is `&T` or `&mut T`.*
+
+### [`Summoner`]
+
+if the method's last parameter is an [`async_channel::Sender`], you can turn your [`Caller`] into
+a [`Summoner`], which makes it easy to wait for a reply when you schedule a call.
 
 ### Example
 
@@ -39,9 +61,10 @@ impl Subject {
 }
 
 let world = Arc::new(RwLock::new(Subject));
+let mut dispatcher = Dispatcher::new(world);
 
-let deferred_print = world.clone().listen_mut_1(Subject::print);
-let deferred_ping_pong = world.clone().listen_ref_2(Subject::ping_pong);
+let deferred_print = dispatcher.listen_mut_1(Subject::print);
+let deferred_ping_pong = dispatcher.listen_ref_2(Subject::ping_pong);
 
 async {
     deferred_print.call("Hello World".to_string()).await;
